@@ -114,8 +114,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Почту и пароль(SMTP) подставить свои 
 
 EMAIL_HOST = 'smtp.mail.ru'
-EMAIL_HOST_USER = '***'
-EMAIL_HOST_PASSWORD = '***'
+EMAIL_HOST_USER = 'pivorc72@mal.ru'
+EMAIL_HOST_PASSWORD = 'tvCePUjRXgdvCcvpS1Li'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
@@ -132,3 +132,6 @@ REST_FRAMEWORK = {
     ],
 
 }
+
+CELERY_BROKER_URL = "redis://127.0.0.1:6379/0"
+CELERY_BROKER_BACKEND = "redis://127.0.0.1:6379/0"

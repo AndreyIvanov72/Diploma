@@ -11,6 +11,7 @@ from django.core.mail import send_mail
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
+from .tasks import send_registration_email, send_contact_confirmation_email, send_order_confirmation_email
 
 class UserLoginView(generics.GenericAPIView):
     permission_classes = [AllowAny]
@@ -30,19 +31,18 @@ class UserLoginView(generics.GenericAPIView):
 
 class UserRegistrationView(generics.GenericAPIView):
     permission_classes = [AllowAny]
+    
     def post(self, request, *args, **kwargs):
         username = request.data.get('username')
         password = request.data.get('password')
         email = request.data.get('email')
         if not username or not password or not email:
             return Response({'error': 'Username and password required'}, status=status.HTTP_400_BAD_REQUEST)
+        
         user = User.objects.create_user(username=username, password=password, email=email)
-        send_mail(
-        "Поздравляю! Вы успешно зарегистрировались!",
-        "Регистрация прошла успешно, удачных покупок!",
-        "pivorc72@mail.ru",
-        [email],
-        fail_silently=False,)
+        
+        send_registration_email.delay(email)
+        
         return Response({'message': 'User created'}, status=status.HTTP_201_CREATED)
     
 
@@ -68,17 +68,15 @@ class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
 class ContactListView(generics.ListCreateAPIView):
     queryset = Contact.objects.all()
     serializer_class = ContactSerializer
-    permission_classes=[IsAuthenticated]
+    permission_classes = [IsAuthenticated]
+    
     def perform_create(self, serializer):
         user = self.request.user
         email = self.request.user.email
         serializer.save(user=user, email=email)
-        send_mail(
-        "Подтверждение адреса",
-        "Адрес успешно добавлен",
-        "pivorc72@mail.ru",
-        [email],
-        fail_silently=False,)
+        
+        send_contact_confirmation_email.delay(email)
+        
         return super().perform_create(serializer)
 
 class ContactDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -113,21 +111,19 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
 class OrderConfirmationView(generics.GenericAPIView):
     lookup_field = 'pk'
     permission_classes=[IsAuthenticated]
+
     def post(self, request, *args, **kwargs):
         user = self.request.user
         order_id = self.kwargs.get('pk')
         order = get_object_or_404(Order, id=order_id)
+        
         if user == order.user:
             email = self.request.user.email
             Order.objects.filter(id=kwargs.get('pk', None)).update(status='Confirmed')
-            send_mail(
-            "Заказ подтвержден",
-            "Поздравляем с покупкой!",
-            "pivorc72@mail.ru",
-            [email],
-            fail_silently=False,)
+            
+            send_order_confirmation_email.delay(email)
+            
             return Response({'message': 'Order confirmed'}, status=status.HTTP_200_OK)
-
         else:
             return Response({'message': 'Нет доступа'}, status=status.HTTP_400_BAD_REQUEST)
 
